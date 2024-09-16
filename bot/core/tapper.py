@@ -305,6 +305,7 @@ class Tapper:
                 'How to Analyze Crypto?': 'VALUE',
                 'Forks Explained': 'GO GET',
                 'Secure your Crypto!': 'BEST PROJECT EVER',
+                'Navigating Crypto': 'HEYBLUM',
             }
 
             payload = {'keyword': keywords.get(title)}
