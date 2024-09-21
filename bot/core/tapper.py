@@ -306,6 +306,8 @@ class Tapper:
                 'Forks Explained': 'GO GET',
                 'Secure your Crypto!': 'BEST PROJECT EVER',
                 'Navigating Crypto': 'HEYBLUM',
+                'Say No to Rug Pull!': 'SUPERBLUM',
+                'What are Telegram Mini Apps?': 'CRYPTOBLUM',
             }
 
             payload = {'keyword': keywords.get(title)}
