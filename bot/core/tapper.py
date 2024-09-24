@@ -308,6 +308,7 @@ class Tapper:
                 'Navigating Crypto': 'HEYBLUM',
                 'Say No to Rug Pull!': 'SUPERBLUM',
                 'What are Telegram Mini Apps?': 'CRYPTOBLUM',
+                'What Are AMMs?': 'CRYPTOSMART',
             }
 
             payload = {'keyword': keywords.get(title)}
