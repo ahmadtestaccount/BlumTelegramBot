@@ -621,33 +621,33 @@ class Tapper:
 
                 await self.join_tribe(http_client=http_client)
 
-                tasks = await self.get_tasks(http_client=http_client)
-
-                for task in tasks:
-                    if task.get('status') == "NOT_STARTED" and task.get('type') != "PROGRESS_TARGET":
-                        self.info(f"Started doing task - '{task['title']}'")
-                        await self.start_task(http_client=http_client, task_id=task["id"])
-                        await asyncio.sleep(0.5)
-
-                await asyncio.sleep(5)
-
-                tasks = await self.get_tasks(http_client=http_client)
-                for task in tasks:
-                    if task.get('status'):
-                        if task['status'] == "READY_FOR_CLAIM" and task['type'] != 'PROGRESS_TASK':
-                            status = await self.claim_task(http_client=http_client, task_id=task["id"])
-                            if status:
-                                logger.success(f"<light-yellow>{self.session_name}</light-yellow> | Claimed task - "
-                                               f"'{task['title']}'")
-                            await asyncio.sleep(0.5)
-                        elif task['status'] == "READY_FOR_VERIFY" and task['validationType'] == 'KEYWORD':
-                            status = await self.validate_task(http_client=http_client, task_id=task["id"],
-                                                              title=task['title'])
-
-                            if status:
-                                logger.success(
-                                    f"<light-yellow>{self.session_name}</light-yellow> | Validated task - "
-                                    f"'{task['title']}'")
+                #tasks = await self.get_tasks(http_client=http_client)
+#
+                #for task in tasks:
+                    #if task.get('status') == "NOT_STARTED" and task.get('type') != "PROGRESS_TARGET":
+                        #self.info(f"Started doing task - '{task['title']}'")
+                        #await self.start_task(http_client=http_client, task_id=task["id"])
+                        #await asyncio.sleep(0.5)
+#
+                #await asyncio.sleep(5)
+#
+                #tasks = await self.get_tasks(http_client=http_client)
+                #for task in tasks:
+                    #if task.get('status'):
+                        #if task['status'] == "READY_FOR_CLAIM" and task['type'] != 'PROGRESS_TASK':
+                            #status = await self.claim_task(http_client=http_client, task_id=task["id"])
+                            #if status:
+                                #logger.success(f"<light-yellow>{self.session_name}</light-yellow> | Claimed task - "
+                                               #f"'{task['title']}'")
+                            #await asyncio.sleep(0.5)
+                        #elif task['status'] == "READY_FOR_VERIFY" and task['validationType'] == 'KEYWORD':
+                            #status = await self.validate_task(http_client=http_client, task_id=task["id"],
+                                                              #title=task['title'])
+#
+                            #if status:
+                                #logger.success(
+                                    #f"<light-yellow>{self.session_name}</light-yellow> | Validated task - "
+                                    #f"'{task['title']}'")
 
                 #await asyncio.sleep(random.uniform(1, 3))
 
