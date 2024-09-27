@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     RANDOM_DELAY_IN_RUN: list[int] = [5, 30]
 
     USE_REF: bool = False
-    REF_ID: str = ''
+    REF_ID: str = 'ref_omCxl1elDm'
 
     USE_PROXY_FROM_FILE: bool = False
 
