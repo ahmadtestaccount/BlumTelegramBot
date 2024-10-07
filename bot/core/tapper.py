@@ -311,8 +311,9 @@ class Tapper:
                 'What Are AMMs?': 'CRYPTOSMART',
                 'Liquidity Pools Guide': 'BLUMERSSS',
                 '$2.5M+ DOGS Airdrop': 'HAPPYDOGS',
-                'Pre-Market Trading?': 'WOWBLUM',
-                'Doxxing? What\'s that?': 'NODOXXING',
+                "Doxxing? What's that?": 'NODOXXING',
+                "Pre-Market Trading?": 'WOWBLUM',
+                'How to Memecoin?': 'MEMEBLUM'
             }
 
             payload = {'keyword': keywords.get(title)}
@@ -345,7 +346,7 @@ class Tapper:
             while True:
                 resp = await http_client.get(f'{self.earn_domain}/api/v1/tasks', ssl=False)
                 if resp.status not in [200, 201]:
-                    continue
+                    return None
                 else:
                     break
             resp_json = await resp.json()
@@ -472,7 +473,7 @@ class Tapper:
             while True:
                 resp = await http_client.post(f"{self.game_url}/api/v1/farming/claim", ssl=False)
                 if resp.status not in [200, 201]:
-                    continue
+                    return None, None
                 else:
                     break
 
@@ -496,7 +497,7 @@ class Tapper:
             while True:
                 resp = await http_client.get(f"{self.user_url}/api/v1/friends/balance", ssl=False)
                 if resp.status not in [200, 201]:
-                    continue
+                    return 0, False
                 else:
                     break
             resp_json = await resp.json()
