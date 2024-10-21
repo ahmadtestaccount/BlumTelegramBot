@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     USE_REF: bool = False
     REF_ID: str = 'ref_omCxl1elDm'
 
-    TRIBE_CHAT_TAG: str = 'tribe_dogs_community'
+    TRIBE_CHAT_TAG: str = 'dogs_community'
 
     USE_PROXY_FROM_FILE: bool = False
 
