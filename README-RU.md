@@ -1,14 +1,13 @@
-[![Static Badge](https://img.shields.io/badge/Телеграм-Наш_канал-Link?style=for-the-badge&logo=Telegram&logoColor=white&logoSize=auto&color=blue)](https://t.me/hidden_coding)
-
-[![Static Badge](https://img.shields.io/badge/Телеграм-Наш_чат-Link?style=for-the-badge&logo=Telegram&logoColor=white&logoSize=auto&color=blue)](https://t.me/hidden_codding_chat)
-
-[![Static Badge](https://img.shields.io/badge/Телеграм-Ссылка_на_бота-Link?style=for-the-badge&logo=Telegram&logoColor=white&logoSize=auto&color=blue)](https://t.me/BlumCryptoBot/app?startapp=ref_QwD3tLsY8f)
+[![Static Badge](https://img.shields.io/badge/ССЫЛКИ_НАHidden_Code-yes?style=for-the-badge&color=black)](https://t.me/hidden_coding)
+[![Static Badge](https://img.shields.io/badge/КАНАЛ-yes?style=for-the-badge&logo=Telegram&logoColor=white&color=blue)](https://t.me/hidden_coding)
+[![Static Badge](https://img.shields.io/badge/ЧАТ-yes?style=for-the-badge&logo=Telegram&logoColor=white&color=blue)](https://t.me/hidden_codding_chat)
+[![Static Badge](https://img.shields.io/badge/БОТ_МАГАЗИН-yes?style=for-the-badge&logo=Telegram&logoColor=white&color=blue)](https://t.me/hcmarket_bot?start=referral_593084007)
 
 ## Рекомендация перед использованием
 
 # 🔥🔥 Используйте PYTHON версии 3.10 🔥🔥
 
-> 🇪🇳 README in english available [here](README-EN)
+> 🇪🇳 README in english available [here](README.md)
 
 ## Функционал  
 |                   Функционал                   | Поддерживается |
@@ -31,7 +30,7 @@
 | **USE_RANDOM_DELAY_IN_RUN** |                                 Имя говорит за себя                                 |
 |   **RANDOM_DELAY_IN_RUN**   |            Рандомная задержка в секундах для ^^^ (по умолчанию - [5, 30]            |
 |         **USE_REF**         |  Регистрировать ваши аккаунты по вашей реф. ссылке или нет (по умолчанию - False)   |
-|         **REF_ID**          |       Ваш реферальный аргумент (идет после app/startapp? в вашей реф. ссылке)       |
+|         **REF_ID**          |     Ваш реферальный аргумент (идет после app/startapp? например: _r_abcde1234_)     |
 |   **USE_PROXY_FROM_FILE**   |       Использовать ли прокси из файла `bot/config/proxies.txt` (True / False)       |
 
 ## Быстрый старт 📚
