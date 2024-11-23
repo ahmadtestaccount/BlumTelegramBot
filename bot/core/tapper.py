@@ -27,6 +27,7 @@ class Tapper:
     _log: SessionLogger
     _session: CloudflareScraper
     _api: BlumApi
+    _balance: float
 
     def __init__(self, tg_client: Client, log: SessionLogger):
         self.tg_client = tg_client
@@ -34,12 +35,12 @@ class Tapper:
 
     async def auth(self, session: CloudflareScraper):
         self._api = BlumApi(session, self._log)
-        web_data = await get_tg_web_data(self.tg_client, self._log)
+        web_data_params = await get_tg_web_data(self.tg_client, self._log)
         self._log.trace("Got init data for auth.")
-        if not web_data:
+        if not web_data_params:
             self._log.error("Auth error, not init_data from tg_web_data")
             return
-        await self._api.login(web_data=web_data)
+        await self._api.login(web_data_params=web_data_params)
         self._log.info("Account login successfully")
 
     async def check_tribe(self):
@@ -104,14 +105,16 @@ class Tapper:
             self._log.error(f"Get tasks error {error}")
             return []
 
-    async def check_tasks(self):
+    async def check_tasks(self) -> bool:
         if settings.AUTO_TASKS is not True:
-            return
+            return False
 
         await asyncio.sleep(uniform(1, 3))
         blum_database = await get_blum_database()
         tasks_codes = blum_database.get('tasks')
         tasks = await self.get_tasks()
+
+        is_task_started = False
 
         for task in tasks:
             await asyncio.sleep(uniform(0.5, 1))
@@ -120,7 +123,7 @@ class Tapper:
                 continue
             if task.get('status') == "NOT_STARTED":
                 self._log.info(f"Started doing task - '{task['title']}'")
-                await self._api.start_task(task_id=task["id"])
+                is_task_started = await self._api.start_task(task_id=task["id"])
             elif task['status'] == "READY_FOR_CLAIM":
                 status = await self._api.claim_task(task_id=task["id"])
                 if status:
@@ -138,7 +141,9 @@ class Tapper:
                 if status:
                     self._log.success(f"Claimed task - '{task['title']}'")
         await asyncio.sleep(uniform(0.5, 1))
-        await self.update_balance()
+        await self.update_user_balance()
+        await self.update_points_balance()
+        return is_task_started
 
     async def play_drop_game(self):
         if settings.PLAY_GAMES is not True or not self.play_passes:
@@ -149,37 +154,65 @@ class Tapper:
 
         if not await check_payload_server(settings.CUSTOM_PAYLOAD_SERVER_URL, full_test=True):
             self._log.warning(
-                f"Payload server not available, maybe offline. Using url: {settings.CUSTOM_PAYLOAD_SERVER_URL}"
+                f"Payload server not available. Skip games... "
+                f"Info: https://github.com/HiddenCodeDevs/BlumTelegramBot/blob/main/PAYLOAD-SERVER.MD"
             )
             return
 
         tries = 3
 
         while self.play_passes:
-            try:
-                await asyncio.sleep(uniform(1, 3))
-                game_id = await self._api.start_game()
+            if tries <= 0:
+                return self._log.warning('No more trying, gonna skip games')
+            if not await check_payload_server(settings.CUSTOM_PAYLOAD_SERVER_URL):
+                self._log.info(f"Couldn't start play in game! Reason: payload server not available")
+                tries -= 1
+                continue
 
-                if not game_id or not await check_payload_server(settings.CUSTOM_PAYLOAD_SERVER_URL):
-                    reason = "error get game_id" if not game_id else "payload server not available"
-                    self._log.info(f"Couldn't start play in game! Reason: {reason}! Trying again!")
-                    tries -= 1
-                    if tries <= 0:
-                        return self._log.warning('No more trying, gonna skip games')
-                    continue
 
-                sleep_time = uniform(30, 40)
-                self._log.info(f"Started playing game. <r>Sleep {int(sleep_time)}s...</r>")
-                await asyncio.sleep(sleep_time)
-                blum_points = randint(settings.POINTS[0], settings.POINTS[1])
-                payload = await get_payload(settings.CUSTOM_PAYLOAD_SERVER_URL, game_id, blum_points)
-                status = await self._api.claim_game(payload)
-                await asyncio.sleep(uniform(1, 2))
-                await self.update_balance()
-                if status:
-                    self._log.success(f"Finish play in game! Reward: <g>{blum_points}</g>. {self.play_passes} passes left")
-            except Exception as e:
-                self._log.error(f"Error occurred during play game: {type(e)} - {e}", )
+            await asyncio.sleep(uniform(1, 3))
+            game_data = await self._api.start_game()
+            game_assets = game_data.get("assets", {})
+            game_id = game_data.get("gameId")
+            if not game_id:
+                self._log.info(f"Couldn't start play in game! Reason: error get game_id!")
+                tries -= 1
+                continue
+
+            is_normal_structure = True
+
+            for asset in ("BOMB", "CLOVER", "FREEZE"):
+                if not asset in game_assets:
+                    is_normal_structure = False
+                    break
+
+            if not is_normal_structure:
+                settings.PLAY_GAMES = False
+                self._log.error("<r>STOP PLAYING GAMES!</r> Unknown game data structure. Say developers for this!")
+
+            sleep_time = uniform(30, 42)
+            self._log.info(f"Started playing game. <r>Sleep {int(sleep_time)}s...</r>")
+
+            await asyncio.sleep(sleep_time)
+            freezes = int((sleep_time - 30) / 3)
+            clover = randint(settings.POINTS[0], settings.POINTS[1]) # blum points
+
+            blum_amount = clover
+            earned_points = {"BP": {"amount": blum_amount}}
+            asset_clicks = {
+                "BOMB": {"clicks": 0},
+                "CLOVER": {"clicks": clover},
+                "FREEZE": {"clicks": freezes},
+            }
+
+            payload = await get_payload(settings.CUSTOM_PAYLOAD_SERVER_URL, game_id, earned_points, asset_clicks)
+            status = await self._api.claim_game(payload)
+            await asyncio.sleep(uniform(1, 2))
+            await self.update_user_balance()
+            await self.update_points_balance()
+            if status:
+                self._log.success(f"Finish play in game! Reward: <g>{blum_amount}</g>. "
+                                  f"Balance: <y>{self._balance}</y>, <r>{self.play_passes}</r> play passes.")
 
     async def random_delay(self):
         await asyncio.sleep(uniform(0.1, 0.5))
@@ -199,19 +232,33 @@ class Tapper:
         else:
             self._log.info(f"<y>No daily reward available.</y>")
 
-    async def update_balance(self, with_log: bool = False):
-        balance = await self._api.balance()
+    async def update_points_balance(self, with_log: bool = False):
+        await asyncio.sleep(uniform(0.1, 0.5))
+        balance = await self._api.my_points_balance()
+        if not balance:
+            return
+        points = balance.get("points", [])
+        for point in points:
+            balance = float(point.get("balance"))
+            if point.get("symbol") == "BP":
+                self._balance = balance
+            if point.get("symbol") == "PP":
+                self.play_passes = int(balance)
+        if not with_log:
+            return
+        self._log.info("Balance <g>{}</g>. Play passes: <g>{}</g>".format(
+            self._balance, self.play_passes
+        ))
+
+    async def update_user_balance(self):
+        balance = await self._api.user_balance()
         if not balance:
             raise Exception("Failed to get balance.")
         self.farming_data = balance.get("farming")
         if self.farming_data:
             self.farming_data.update({"farming_delta_times": self.farming_data.get("endTime") - balance.get("timestamp")})
         self.play_passes = balance.get("playPasses", 0)
-        if not with_log:
-            return
-        self._log.info("Balance <g>{}</g>. Play passes: <g>{}</g>".format(
-            balance.get('availableBalance'), self.play_passes
-        ))
+        self._balance = balance.get('availableBalance') or self._balance
 
     async def check_friends_balance(self):
         balance = await self._api.get_friends_balance()
@@ -237,7 +284,7 @@ class Tapper:
         await self._api.start_farming()
         self._log.info(f"Start farming!")
         await asyncio.sleep(uniform(0.1, 0.5))
-        await self.update_balance()
+        await self.update_user_balance()
 
     async def run(self, proxy: Proxy | None) -> None:
         if not settings.DEBUG:
@@ -277,14 +324,17 @@ class Tapper:
                     await asyncio.sleep(sleep_time)
                 try:
                     await self.check_daily_reward()
-                    await self.update_balance(with_log=True)
+                    await self.update_user_balance()
+                    await self.update_points_balance(with_log=True)
                     await self.check_farming()
                     await self.check_friends_balance()
                     await self._api.elig_dogs()
                     # todo: add "api/v1/wallet/my/balance?fiat=usd", "api/v1/tribe/leaderboard" and another human behavior
                     await self.check_tribe()
-                    await self.check_tasks()
+                    need_recheck_tasks = await self.check_tasks()
                     await self.play_drop_game()
+                    if need_recheck_tasks:
+                        await self.check_tasks()
                 except NeedReLoginError:
                     await self.auth(session)
                 except Exception:

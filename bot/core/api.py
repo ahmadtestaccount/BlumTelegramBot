@@ -1,9 +1,12 @@
 from asyncio import sleep
+from json import loads
+
+from urllib.parse import parse_qs
 from aiohttp import ClientSession
 
-from bot.config import settings
 from bot.core.helper import get_referral_token, get_random_letters
-from bot.exceptions import NeedReLoginError, NeedRefreshTokenError, InvalidUsernameError, AuthError
+from bot.exceptions import NeedReLoginError, NeedRefreshTokenError, InvalidUsernameError, AuthError, \
+    AlreadyConnectError, UsernameNotAvailableError
 from bot.utils.logger import SessionLogger
 
 class BlumApi:
@@ -66,25 +69,33 @@ class BlumApi:
         if resp.status == 520:
             raise NeedReLoginError()
         if resp.status == 500 and "Invalid username" in resp_json.get('message'):
-            raise InvalidUsernameError(f"response data: {resp_json}")
+            raise InvalidUsernameError(f"response data: {resp_json.get('message')}")
+        if resp.status == 500 and "account is already connected" in resp_json.get('message'):
+            raise AlreadyConnectError(f"response data: {resp_json.get('message')}")
+        if resp.status == 409:
+            raise UsernameNotAvailableError(f"response data: {resp_json.get('message')}")
         raise Exception(f"error auth_with_web_data. resp[{resp.status}]: {resp_json}")
 
 
-    async def login(self, web_data: dict):
-        web_data = {"query": web_data}
-        if settings.USE_REF is True and not web_data.get("username"):
-            web_data.update({
-                "username": web_data.get("username", get_random_letters()),
-                "referralToken": get_referral_token().split('_')[1]
-            })
-        for _ in range(4):
+    async def login(self, web_data_params: str):
+        web_data = parse_qs(web_data_params)
+        user = loads(web_data.get("user", ['{}'])[0])
+        auth_web_data = {
+            "query": web_data_params,
+            "username": user.get("username", get_random_letters(user.get("id", ""))),
+            "referralToken": get_referral_token().split('_')[1]
+        }
+        for _ in range(3):
             try:
-                data = await self.auth_with_web_data(web_data)
+                await sleep(0.1)
+                data = await self.auth_with_web_data(auth_web_data)
+            except (UsernameNotAvailableError, AlreadyConnectError):
+                auth_web_data = {"query": web_data_params}
+                continue
             except InvalidUsernameError as e:
-                self._log.warning(f"Maybe invalid (empty) username from TG account... Error: {e}")
-                web_data.update({"username": get_random_letters()})
-                self._log.warning(f'Try using username for auth - {web_data.get("username")}')
-                await sleep(5)
+                self._log.warning(f"Invalid username from TG account... Error: {e}")
+                auth_web_data.update({"username": get_random_letters()})
+                self._log.warning(f'Try using username for auth - {auth_web_data.get("username")}')
                 continue
             token = data.get("token", {})
             return self.set_tokens(token)
@@ -106,7 +117,23 @@ class BlumApi:
         self.set_tokens(resp_json)
 
     @error_wrapper
-    async def balance(self) -> dict | None:
+    async def wallet_my_balance(self) -> dict | None:
+        resp = await self.get(f"{self.wallet_url}/api/v1/wallet/my/balance?fiat=usd")
+        data = await resp.json()
+        if resp.status == 200:
+            return data
+        raise BaseException(f"Unknown wallets_balances structure. status: {resp.status}, body: {data}")
+
+    @error_wrapper
+    async def my_points_balance(self) -> dict | None:
+        resp = await self.get(f"{self.wallet_url}/api/v1/wallet/my/points/balance")
+        data = await resp.json()
+        if resp.status == 200:
+            return data
+        raise BaseException(f"Unknown wallets_balances structure. status: {resp.status}, body: {data}")
+
+    @error_wrapper
+    async def user_balance(self) -> dict | None:
         resp = await self.get(f"{self.game_url}/api/v1/user/balance")
         data = await resp.json()
 
@@ -147,11 +174,12 @@ class BlumApi:
         raise Exception(f"Unknown eligibility status: {data}")
 
     @error_wrapper
-    async def start_game(self):
+    async def start_game(self) -> dict:
         resp = await self.post(f"{self.game_url}/api/v2/game/play")
-        # {'gameId': '38cb2ed0-1978-4239-b0c1-f6dc5edf95cf', 'assets': {'BOMB': {'probability': '0.03', 'perClick': '1'}, 'CLOVER': {'probability': '0.95', 'perClick': '1'}, 'FREEZE': {'probability': '0.02', 'perClick': '1'}}}
-        response_data = await resp.json()
-        return response_data.get("gameId")
+        data = await resp.json()
+        if resp.status == 200 and data.get("gameId"):
+            return data
+        raise Exception(f"Unknown start game data. resp[{resp.status}]: {data}")
 
     @error_wrapper
     async def claim_game(self, payload: str) -> bool:

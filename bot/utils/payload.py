@@ -12,31 +12,38 @@ async def check_payload_server(payload_server_url: str, full_test: bool = False)
     async with ClientSession() as session:
         try:
             async with session.get(url, timeout=3) as response:
-                if response.status == 200 and (await response.json()).get("status") == "ok" and not full_test:
-                    return True
+                result = await response.json()
+                if response.status != 200 or result.get("status") != "ok":
+                    return False
+                if result.get("version", 0) < 2:
+                    logger.warning("<y>You need to update BlumPayloadGenerator, used old version</y>")
+                    return False
+                if result.get("version") > 2:
+                    logger.warning("<y>Your BlumTelegramBot script is out of date and needs to be updated.</y>")
+                    return False
                 if full_test:
-                    test_game_id = "ad7cd4cd-29d1-4548-89a3-91301996ef31"
-                    payload = await get_payload(payload_server_url, test_game_id, 150)
-                    if len(payload) == 684:
-                        return True
-                return False
+                    test_game_id = "0000test-game-iden-tifi-cation123456"
+                    asset_clicks = {
+                        "BOMB": {"clicks": 0},
+                        "CLOVER": {"clicks": 150},
+                        "FREEZE": {"clicks": 0},
+                        "HARRIS": {"clicks": 0},
+                        "TRUMP": {"clicks": 300}
+                    }
+                    earned_points = {"BP": {"amount": 150 + 300 * 5}}
+                    payload = await get_payload(payload_server_url, test_game_id, earned_points, asset_clicks)
+                    return len(payload) == 684
+                return True
         except (TimeoutError, ClientConnectorError):
-            pass
+            logger.debug(f"Try connect to payload server ({url}) failed...")
     return False
 
-async def get_payload(payload_server_url: str, game_id: str, blum_points: int | str) -> str | None:
+async def get_payload(payload_server_url: str, game_id: str, earned_points: dict, asset_clicks: dict) -> str | None:
     async with ClientSession() as session:
-        data = {
-            "gameId": game_id,
-            "earnedAssets": {
-                "CLOVER": {
-                    "amount": str(blum_points)
-                }
-            }
-        }
-
-        async with session.post(url=f"{payload_server_url}/getPayload", json=data) as response:
+        payload_data = {"gameId": game_id, "earnedPoints": earned_points, "assetClicks": asset_clicks}
+        async with session.post(url=f"{payload_server_url}/getPayload", json=payload_data) as response:
             data = await response.json()
             if response.status == 200 and data.get("payload"):
                 return data.get("payload")
-            raise Exception(f"Payload Server Error: {data.get('error')}")
+            logger.error(f"Payload Server Error: {data.get('error')}")
+            raise KeyboardInterrupt
